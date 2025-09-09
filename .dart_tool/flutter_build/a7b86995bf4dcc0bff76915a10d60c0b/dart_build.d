@@ -1,0 +1,1 @@
+ /Users/gian/Documents/farmaconsult/Farma\ Authenticator/.dart_tool/flutter_build/a7b86995bf4dcc0bff76915a10d60c0b/dart_build_result.json: 

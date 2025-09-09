@@ -1,0 +1,1 @@
+ /Users/gian/Documents/Sviluppo/sviluppo/Farma\ Authenticator/.dart_tool/flutter_build/364e471014b15ce9b6466de6258f372c/native_assets.json: 
