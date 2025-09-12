@@ -233,7 +233,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                 // Codice generato in alto
                 Text(
                   _converted,
-                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -242,6 +242,8 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                 TextField(
                   controller: _controller,
                   maxLength: 6,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.normal),
                   readOnly: true, // input solo da pulsantiera
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
@@ -336,7 +338,15 @@ extension on _ReverseHomePageState {
   }
 
   void _appendDigit(String digit) {
-    if (_controller.text.length >= 6) return;
+    if (_controller.text.length >= 6) {
+      final newText = digit; // reset e riparti dal nuovo numero
+      _controller.text = newText;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: newText.length),
+      );
+      _handleTextChanged(newText);
+      return;
+    }
     final newText = _controller.text + digit;
     _controller.text = newText;
     _controller.selection = TextSelection.fromPosition(
@@ -390,7 +400,7 @@ class _NumericKeypad extends StatelessWidget {
             for (final d in digits)
               ElevatedButton(
                 onPressed: () => onDigit(d),
-                child: Text(d, style: const TextStyle(fontSize: 18)),
+                child: Text(d, style: const TextStyle(fontSize: 25)),
               ),
           ],
         ),
@@ -407,18 +417,18 @@ class _NumericKeypad extends StatelessWidget {
               message: 'Cancella',
               child: ElevatedButton(
                 onPressed: onBackspace,
-                child: const Icon(Icons.backspace_outlined),
+                child: const Icon(Icons.backspace_outlined, size: 25),
               ),
             ),
             ElevatedButton(
               onPressed: () => onDigit('0'),
-              child: const Text('0', style: TextStyle(fontSize: 18)),
+              child: const Text('0', style: TextStyle(fontSize: 25)),
             ),
             Tooltip(
               message: 'Azzera',
               child: ElevatedButton(
                 onPressed: onClear,
-                child: const Icon(Icons.cancel),
+                child: const Icon(Icons.cancel, size: 25, color: Colors.red ),
               ),
             ),
           ],
