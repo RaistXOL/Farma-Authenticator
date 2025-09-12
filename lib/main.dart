@@ -247,7 +247,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                   readOnly: true, // input solo da pulsantiera
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    hintText: 'inserisci codice es: 123456',
+                    hintText: 'es: 123456',
                   ),
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
@@ -282,14 +282,17 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                 ),
                 textAlign: TextAlign.center,
               ),
-              Text(
-                _generatedUUID, // ← Cambia il testo come vuoi
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                  fontFamily: 'monospace',
+              GestureDetector(
+                onTap: _showUuidLens,
+                child: Text(
+                  _generatedUUID, // ← Cambia il testo come vuoi
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -301,6 +304,47 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
 
 // ---- Helpers per la pulsantiera numerica ----
 extension on _ReverseHomePageState {
+  void _showUuidLens() {
+    if (_generatedUUID.isEmpty) return;
+    final last9 = _generatedUUID.characters.takeLast(9).toString();
+    if (last9.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          contentPadding: const EdgeInsets.all(16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Ultime 9 cifre',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              SelectableText(
+                last9,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontFamily: 'monospace',
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _extractLastDigits(String s, int n) {
+    final digitsOnly = s.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) return '';
+    return digitsOnly.length <= n
+        ? digitsOnly
+        : digitsOnly.substring(digitsOnly.length - n);
+  }
+
   void _handleTextChanged(String value) {
     if (value.length > 6) {
       final truncated = value.substring(0, 6);
