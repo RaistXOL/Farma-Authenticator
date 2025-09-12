@@ -103,10 +103,9 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
 
   void _getVersion() async {
     final info = await PackageInfo.fromPlatform();
-    setState((){
+    setState(() {
       _version = info.version;
     });
-    
   }
 
   Future<void> _registerDevice(String deviceId) async {
@@ -115,7 +114,6 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
     ); // ← cambia URL
     final headers = {'Content-Type': 'application/x-www-form-urlencoded'};
 
-  
     try {
       final resp = await http
           .post(
@@ -227,87 +225,44 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
           : AppBar(title: const Text('Farma authenticator')),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Inserisci codice:'),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _controller,
-              maxLength: 6,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                hintText: 'Es: 123456',
-                suffixIcon: _controller.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.backspace),
-                        onPressed: () {
-                          setState(() {
-                            if (_controller.text.isNotEmpty) {
-                              _controller.text = _controller.text.substring(
-                                0,
-                                _controller.text.length - 1,
-                              );
-                              _controller
-                                  .selection = TextSelection.fromPosition(
-                                TextPosition(offset: _controller.text.length),
-                              );
-                            }
-                            // se torniamo sotto le 6 cifre, sblocca il prossimo auto-submit
-                            if (_controller.text.length < 6) _converted = "";
-                            _autoSubmitted = false;
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              inputFormatters: [
-                // consenti solo cifre e limita a 6
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Codice generato in alto
+                Text(
+                  _converted,
+                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                //const Text('Inserisci codice:'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _controller,
+                  maxLength: 6,
+                  readOnly: true, // input solo da pulsantiera
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'inserisci codice es: 123456',
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  onChanged: _handleTextChanged,
+                ),
+                const SizedBox(height: 12),
+                _NumericKeypad(
+                  onDigit: _appendDigit,
+                  onBackspace: _deleteLast,
+                  onClear: _clearAll,
+                ),
+                const SizedBox(height: 8),
               ],
-              onChanged: (value) {
-                // tronca eventuali incolli > 6 (per sicurezza)
-                if (value.length > 6) {
-                  final truncated = value.substring(0, 6);
-                  _controller.text = truncated;
-                  _controller.selection = TextSelection.fromPosition(
-                    TextPosition(offset: truncated.length),
-                  );
-                }
-
-                setState(() {}); // aggiorna la UI (icona backspace ecc.)
-
-                // auto-submit quando sono 6 cifre, una sola volta
-                if (value.length == 6 && !_autoSubmitted) {
-                  _autoSubmitted = true;
-
-                  // opzionale: chiudi tastiera/focus (utile su mobile/desktop)
-                  FocusScope.of(context).unfocus();
-
-                  if (_lAppAttiva) {
-                    _convertiInBase32();
-                  } else {
-                    // opzionale: mostra/snack o stato "App scaduta"
-                    debugPrint('App non attiva, non eseguo conversione');
-                  }
-                }
-
-                // se l’utente modifica tornando <6, riabilita auto-submit
-                if (value.length < 6) {
-                  _autoSubmitted = false;
-                  _converted = '';
-                }
-              },
             ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: _lAppAttiva ? _convertiInBase32 : null,
-              child: _lAppAttiva ? Text('Genera codice') : Text('App scaduta'),
-            ),
-            const SizedBox(height: 20),
-            Text(_converted, style: const TextStyle(fontSize: 24)),
-          ],
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -328,7 +283,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
               Text(
                 _generatedUUID, // ← Cambia il testo come vuoi
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 14,
                   color: Colors.grey,
                   fontFamily: 'monospace',
                 ),
@@ -338,6 +293,137 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---- Helpers per la pulsantiera numerica ----
+extension on _ReverseHomePageState {
+  void _handleTextChanged(String value) {
+    if (value.length > 6) {
+      final truncated = value.substring(0, 6);
+      _controller.text = truncated;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: truncated.length),
+      );
+    }
+
+    setState(() {});
+
+    if (_controller.text.length == 6 && !_autoSubmitted) {
+      _autoSubmitted = true;
+      FocusScope.of(context).unfocus();
+      if (_lAppAttiva) {
+        _convertiInBase32();
+      } else {
+        // Avvisa l'utente che l'app non è attiva
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('App non attiva: impossibile generare il codice.'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    }
+
+    if (_controller.text.length < 6) {
+      _autoSubmitted = false;
+      _converted = '';
+    }
+  }
+
+  void _appendDigit(String digit) {
+    if (_controller.text.length >= 6) return;
+    final newText = _controller.text + digit;
+    _controller.text = newText;
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: newText.length),
+    );
+    _handleTextChanged(newText);
+  }
+
+  void _deleteLast() {
+    if (_controller.text.isEmpty) return;
+    final newText = _controller.text.substring(0, _controller.text.length - 1);
+    _controller.text = newText;
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: newText.length),
+    );
+    _handleTextChanged(newText);
+  }
+
+  void _clearAll() {
+    _controller.clear();
+    _controller.selection = const TextSelection.collapsed(offset: 0);
+    _handleTextChanged('');
+  }
+}
+
+class _NumericKeypad extends StatelessWidget {
+  final void Function(String digit) onDigit;
+  final VoidCallback onBackspace;
+  final VoidCallback onClear;
+
+  const _NumericKeypad({
+    required this.onDigit,
+    required this.onBackspace,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GridView.count(
+          crossAxisCount: 3,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 2.1, // compattiamo per finestre piccole
+          children: [
+            for (final d in digits)
+              ElevatedButton(
+                onPressed: () => onDigit(d),
+                child: Text(d, style: const TextStyle(fontSize: 18)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.count(
+          crossAxisCount: 3,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 2.1,
+          children: [
+            Tooltip(
+              message: 'Cancella',
+              child: ElevatedButton(
+                onPressed: onBackspace,
+                child: const Icon(Icons.backspace_outlined),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => onDigit('0'),
+              child: const Text('0', style: TextStyle(fontSize: 18)),
+            ),
+            Tooltip(
+              message: 'Azzera',
+              child: ElevatedButton(
+                onPressed: onClear,
+                child: const Icon(Icons.cancel),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

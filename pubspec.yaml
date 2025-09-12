@@ -1,7 +1,7 @@
 name: farma_auth
 description: "An app to authenticate users."
 publish_to: 'none'
-version: 1.00.00
+version: 1.10.00
 
 environment:
   sdk: ^3.8.1
