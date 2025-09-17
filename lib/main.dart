@@ -261,13 +261,15 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                   },
                   onChanged: _handleTextChanged,
                 ),
-                const SizedBox(height: 12),
-                _NumericKeypad(
-                  onDigit: _appendDigit,
-                  onBackspace: _deleteLast,
-                  onClear: _clearAll,
-                ),
-                const SizedBox(height: 8),
+                if (!Platform.isWindows) ...[
+                  const SizedBox(height: 12),
+                  _NumericKeypad(
+                    onDigit: _appendDigit,
+                    onBackspace: _deleteLast,
+                    onClear: _clearAll,
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ],
             ),
           ),
