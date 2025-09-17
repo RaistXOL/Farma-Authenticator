@@ -244,7 +244,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                   maxLength: 6,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 25, fontWeight: FontWeight.normal),
-                  readOnly: true, // input solo da pulsantiera
+                  readOnly: Platform.isWindows ? false : true, // input solo da pulsantiera
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'es: 123456',
@@ -306,8 +306,6 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
 extension on _ReverseHomePageState {
   void _showUuidLens() {
     if (_generatedUUID.isEmpty) return;
-    final last9 = _generatedUUID.characters.takeLast(9).toString();
-    if (last9.isEmpty) return;
     showDialog(
       context: context,
       builder: (ctx) {
@@ -317,17 +315,17 @@ extension on _ReverseHomePageState {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Ultime 9 cifre',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                'ID dispositivo',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 8),
               SelectableText(
-                last9,
+                _generatedUUID,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 36,
+                  fontSize: 24,
                   fontFamily: 'monospace',
-                  letterSpacing: 2,
+                  letterSpacing: 1.0,
                 ),
               ),
             ],
