@@ -244,7 +244,8 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                   maxLength: 6,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 25, fontWeight: FontWeight.normal),
-                  readOnly: Platform.isWindows ? false : true, // input solo da pulsantiera
+                  keyboardType: Platform.isWindows ? TextInputType.none : TextInputType.number,
+                  readOnly: Platform.isWindows ? false : true,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'es: 123456',
@@ -253,6 +254,11 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(6),
                   ],
+                  onTap: () {
+                    if (Platform.isWindows) {
+                      SystemChannels.textInput.invokeMethod('TextInput.hide');
+                    }
+                  },
                   onChanged: _handleTextChanged,
                 ),
                 const SizedBox(height: 12),
