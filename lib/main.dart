@@ -15,6 +15,11 @@ import 'package:http/http.dart' as http;
 import 'package:window_manager/window_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+// CONFIGURA: percorsi dei file richiesti su Windows (UNC supportato)
+// Esempio: r'\\SERVER\SHARE\Farmaconsult\file1.key'
+const String kWinRequiredFile1 = r'\\canestrello\sys\mm5\maga.dbf';
+const String kWinRequiredFile2 = r'\\canestrello\sys\pers\www\index.prg';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows) {
@@ -95,8 +100,9 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
       //_datascadenza = DateFormat("dd-MM-yy").format(DateTime.now());
     } else {
       debugPrint("token ancora valido: data scadenza $datascadenza");
+      final filesOk = await _windowsRequiredFilesPresent();
       setState(() {
-        _lAppAttiva = true;
+        _lAppAttiva = !Platform.isWindows ? true : filesOk;
       });
     }
   }
@@ -128,10 +134,12 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
           .timeout(const Duration(seconds: 8));
 
       if (resp.statusCode == 200) {
+        final attivaDaServer = DateFormat(
+          "dd-MM-yy",
+        ).parse(resp.body).isAfter(DateTime.now());
+        final filesOk = await _windowsRequiredFilesPresent();
         setState(() {
-          _lAppAttiva = DateFormat(
-            "dd-MM-yy",
-          ).parse(resp.body).isAfter(DateTime.now());
+          _lAppAttiva = attivaDaServer && (!Platform.isWindows || filesOk);
           debugPrint('Registrazione ${_lAppAttiva ? 'ok' : 'fallita'}');
           _datascadenza = resp.body;
         });
@@ -150,6 +158,16 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
 
   Future<String> getDeviceBasedUuid() async {
     final di = DeviceInfoPlugin();
+
+    // Windows: usa il nome del computer
+    if (Platform.isWindows) {
+      final envName = Platform.environment['COMPUTERNAME'];
+      if (envName != null && envName.isNotEmpty) {
+        return envName;
+      }
+      // Fallback generico
+      return Platform.localHostname;
+    }
 
     if (Platform.isAndroid) {
       final info = await di.androidInfo;
@@ -177,6 +195,25 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
       return sha256.convert(utf8.encode(raw)).toString();
     }
     return 'unknown-device';
+  }
+
+  // Verifica presenza di due file obbligatori solo su Windows
+  Future<bool> _windowsRequiredFilesPresent() async {
+    if (!Platform.isWindows) return true;
+    try {
+      final p1 = Platform.environment['FARMA_FILE1_PATH'] ?? kWinRequiredFile1;
+      final p2 = Platform.environment['FARMA_FILE2_PATH'] ?? kWinRequiredFile2;
+      final f1 = File(p1);
+      final f2 = File(p2);
+      final e1 = await f1.exists().timeout(const Duration(seconds: 2), onTimeout: () => false);
+      final e2 = await f2.exists().timeout(const Duration(seconds: 2), onTimeout: () => false);
+      if (!e1 || !e2) {
+        debugPrint('File richiesti non trovati su Windows: e1=$e1 path1=$p1, e2=$e2 path2=$p2');
+      }
+      return e1 && e2;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _convertiInBase32() async {
