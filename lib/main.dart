@@ -150,9 +150,27 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
         );
       } else {
         debugPrint('Errore server: ${resp.statusCode} - ${resp.body}');
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Errore server: ${resp.statusCode} - ${resp.body}'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
       }
     } catch (e) {
       debugPrint('Errore rete: $e');
+      ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Errore rete: $e'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
     }
   }
 
@@ -329,14 +347,24 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
               ),
               GestureDetector(
                 onTap: _showUuidLens,
-                child: Text(
-                  _generatedUUID, // ← Cambia il testo come vuoi
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontFamily: 'monospace',
-                  ),
-                  textAlign: TextAlign.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: _lAppAttiva ? 'App attiva' : 'App non attiva',
+                      child: _StatusLed(on: _lAppAttiva, size: 10),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _generatedUUID,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                        fontFamily: 'monospace',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -521,6 +549,34 @@ class _NumericKeypad extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _StatusLed extends StatelessWidget {
+  final bool on;
+  final double size;
+
+  const _StatusLed({required this.on, this.size = 10});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = on ? Colors.green : Colors.red;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black26, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.5),
+            blurRadius: 4,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
     );
   }
 }
