@@ -243,6 +243,22 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
         _converted =
             '${base32[2]}${base32[5]}${base32[1]}${base32[3]}'; //base32;
       });
+      // Copia automatica negli appunti solo su Windows
+      if (Platform.isWindows && _converted.isNotEmpty) {
+        await Clipboard.setData(ClipboardData(text: _converted));
+        // Feedback non invasivo (mostra breve notifica)
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('Codice copiato negli appunti'),
+                duration: Duration(milliseconds: 900),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+      }
       //_tts.setLanguage('it-IT');
       //_tts.setSpeechRate(0.5); // più lento
       //await _tts.speak( "il codice generato è. " + _converted.split('').join('.'));
@@ -365,9 +381,8 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
                       textAlign: TextAlign.center,
                     ),
                   ],
-                ),
               ),
-            ],
+          )],
           ),
         ),
       ),
@@ -580,3 +595,5 @@ class _StatusLed extends StatelessWidget {
     );
   }
 }
+
+
