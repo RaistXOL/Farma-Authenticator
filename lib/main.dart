@@ -38,6 +38,7 @@ void main() async {
       title: "Farma authenticator",
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.setMaximizable(false);
       await windowManager.show();
       await windowManager.focus();
       await windowManager.setPreventClose(true);
