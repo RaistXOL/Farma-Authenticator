@@ -164,6 +164,12 @@
       "languageVersion": "2.17"
     },
     {
+      "name": "menu_base",
+      "rootUri": "file:///Users/gian/.pub-cache/hosted/pub.dev/menu_base-0.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "meta",
       "rootUri": "file:///Users/gian/.pub-cache/hosted/pub.dev/meta-1.16.0",
       "packageUri": "lib/",
@@ -290,6 +296,12 @@
       "languageVersion": "3.3"
     },
     {
+      "name": "shortid",
+      "rootUri": "file:///Users/gian/.pub-cache/hosted/pub.dev/shortid-0.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "sky_engine",
       "rootUri": "file:///Users/gian/Documents/fluttersdk/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
@@ -336,6 +348,12 @@
       "rootUri": "file:///Users/gian/.pub-cache/hosted/pub.dev/test_api-0.7.6",
       "packageUri": "lib/",
       "languageVersion": "3.5"
+    },
+    {
+      "name": "tray_manager",
+      "rootUri": "file:///Users/gian/.pub-cache/hosted/pub.dev/tray_manager-0.2.4",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
     },
     {
       "name": "typed_data",

@@ -1,5 +1,6 @@
 //import 'dart:nativewrappers/_internal/vm/lib/ffi_native_type_patch.dart';
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,12 +14,14 @@ import 'package:crypto/crypto.dart';
 import 'package:android_id/android_id.dart';
 import 'package:http/http.dart' as http;
 import 'package:window_manager/window_manager.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 // CONFIGURA: percorsi dei file richiesti su Windows (UNC supportato)
 // Esempio: r'\\SERVER\SHARE\Farmaconsult\file1.key'
 const String kWinRequiredFile1 = r'\\canestrello\sys\mm5\maga.dbf';
 const String kWinRequiredFile2 = r'\\canestrello\sys\pers\www\index.prg';
+const String kTrayIconDefaultPath = 'windows/runner/resources/app_icon.ico';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,8 +40,8 @@ void main() async {
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
+      await windowManager.setPreventClose(true);
     });
-    //windowManager.setPreventClose(true);
   }
   runApp(const ReverseApp());
 }
@@ -63,7 +66,7 @@ class ReverseHomePage extends StatefulWidget {
   State<ReverseHomePage> createState() => _ReverseHomePageState();
 }
 
-class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
+class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, TrayListener {
   final TextEditingController _controller = TextEditingController();
   //final FlutterTts _tts = FlutterTts();
   String _generatedUUID = '';
@@ -73,6 +76,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
   int diff = 0;
   String _datascadenza = "";
   String _version = "";
+  bool _trayInitialized = false;
 
   void _initUuid() async {
     final _uuid = await getDeviceBasedUuid();
@@ -104,6 +108,82 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
       setState(() {
         _lAppAttiva = !Platform.isWindows ? true : filesOk;
       });
+    }
+  }
+
+  Future<void> _initSystemTray() async {
+    if (!Platform.isWindows) return;
+    final menu = Menu();
+    menu.items = [
+      MenuItem(key: 'show', label: 'Mostra finestra'),
+      MenuItem.separator(),
+      MenuItem(key: 'exit', label: 'Esci'),
+    ];
+    final iconCandidates = [
+      kTrayIconDefaultPath,
+      'assets/tray_icon.ico',
+      'assets/tray_icon.png',
+    ];
+    String? resolvedIcon;
+    for (final candidate in iconCandidates) {
+      final file = File(candidate);
+      if (await file.exists()) {
+        resolvedIcon = file.absolute.path;
+        break;
+      }
+    }
+    if (resolvedIcon != null) {
+      await trayManager.setIcon(resolvedIcon);
+    }
+    await trayManager.setToolTip('Farma authenticator');
+    await trayManager.setContextMenu(menu);
+    _trayInitialized = true;
+  }
+
+  Future<void> _showFromTray() async {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  @override
+  void onTrayIconMouseDown() async {
+    await _showFromTray();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) async {
+    if (!Platform.isWindows) return;
+    switch (menuItem.key) {
+      case 'show':
+        await _showFromTray();
+        break;
+      case 'exit':
+        _trayInitialized = false;
+        await trayManager.destroy();
+        await windowManager.setPreventClose(false);
+        await windowManager.close();
+        break;
+    }
+  }
+
+  @override
+  void onWindowClose() async {
+    if (!Platform.isWindows) {
+      return;
+    }
+    final preventClose = await windowManager.isPreventClose();
+    if (preventClose) {
+      await windowManager.hide();
+    }
+  }
+
+  @override
+  void onWindowEvent(String eventName) {
+    if (!Platform.isWindows) {
+      return;
+    }
+    if (eventName == 'minimize') {
+      unawaited(windowManager.hide());
     }
   }
 
@@ -286,6 +366,24 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener {
     super.initState();
     _getVersion();
     _initUuid();
+    if (Platform.isWindows) {
+      windowManager.addListener(this);
+      trayManager.addListener(this);
+      unawaited(_initSystemTray());
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isWindows) {
+      windowManager.removeListener(this);
+      trayManager.removeListener(this);
+      if (_trayInitialized) {
+        unawaited(trayManager.destroy());
+      }
+    }
+    _controller.dispose();
+    super.dispose();
   }
 
   @override

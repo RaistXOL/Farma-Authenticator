@@ -14,6 +14,7 @@
         "intl",
         "package_info_plus",
         "shared_preferences",
+        "tray_manager",
         "uuid",
         "window_manager",
         "window_size"
@@ -53,6 +54,16 @@
       "version": "0.1.0",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "tray_manager",
+      "version": "0.2.4",
+      "dependencies": [
+        "flutter",
+        "menu_base",
+        "path",
+        "shortid"
       ]
     },
     {
@@ -243,6 +254,18 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "shortid",
+      "version": "0.1.2",
+      "dependencies": []
+    },
+    {
+      "name": "menu_base",
+      "version": "0.1.1",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
