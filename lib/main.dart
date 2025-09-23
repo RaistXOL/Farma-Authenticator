@@ -239,9 +239,10 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
           .timeout(const Duration(seconds: 8));
 
       if (resp.statusCode == 200) {
-        final attivaDaServer = DateFormat(
+        final dataDaServer = DateFormat(
           "dd-MM-yy",
-        ).parse(resp.body).isAfter(DateTime.now());
+        ).parse(resp.body);
+        final attivaDaServer = dataDaServer.isAfter(DateTime.now()) || dataDaServer.isAtSameMomentAs(DateTime.now());
         final filesOk = await _windowsRequiredFilesPresent();
         setState(() {
           _lAppAttiva = attivaDaServer && (!Platform.isWindows || filesOk);
@@ -262,7 +263,7 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
         bool attiva = false;
         if (stored != null && stored.isNotEmpty) {
           try {
-            attiva = DateFormat("dd-MM-yy").parse(stored).isAfter(DateTime.now());
+            attiva = DateFormat("dd-MM-yy").parse(stored).isAfter(DateTime.now()) || DateFormat("dd-MM-yy").parse(stored).isAtSameMomentAs(DateTime.now());
           } catch (_) {}
         }
         setState(() {
