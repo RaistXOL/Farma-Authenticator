@@ -10,6 +10,12 @@ set(BINARY_NAME "farma_auth")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Link MSVC runtime statically to reduce external DLLs
+if (MSVC)
+  # Uses /MT for Release and /MTd for Debug/Profile
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug,Profile>:Debug>")
+endif()
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)

@@ -5,13 +5,14 @@
   "packages": [
     {
       "name": "farma_auth",
-      "version": "1.12.00",
+      "version": "1.13.00",
       "dependencies": [
         "android_id",
         "device_info_plus",
         "flutter",
         "http",
         "intl",
+        "local_notifier",
         "package_info_plus",
         "shared_preferences",
         "tray_manager",
@@ -50,6 +51,14 @@
       ]
     },
     {
+      "name": "local_notifier",
+      "version": "0.1.6",
+      "dependencies": [
+        "flutter",
+        "uuid"
+      ]
+    },
+    {
       "name": "window_size",
       "version": "0.1.0",
       "dependencies": [
@@ -58,7 +67,7 @@
     },
     {
       "name": "tray_manager",
-      "version": "0.2.4",
+      "version": "0.5.1",
       "dependencies": [
         "flutter",
         "menu_base",
@@ -100,7 +109,7 @@
     },
     {
       "name": "package_info_plus",
-      "version": "8.3.1",
+      "version": "9.0.0",
       "dependencies": [
         "clock",
         "ffi",
@@ -147,7 +156,7 @@
     },
     {
       "name": "device_info_plus",
-      "version": "11.5.0",
+      "version": "12.1.0",
       "dependencies": [
         "device_info_plus_platform_interface",
         "ffi",
@@ -348,7 +357,7 @@
     },
     {
       "name": "shared_preferences_android",
-      "version": "2.4.11",
+      "version": "2.4.13",
       "dependencies": [
         "flutter",
         "shared_preferences_platform_interface"
@@ -576,7 +585,7 @@
     },
     {
       "name": "vm_service",
-      "version": "15.0.0",
+      "version": "15.0.2",
       "dependencies": []
     },
     {

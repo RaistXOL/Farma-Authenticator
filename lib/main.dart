@@ -16,16 +16,24 @@ import 'package:http/http.dart' as http;
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:local_notifier/local_notifier.dart';
 
 // CONFIGURA: percorsi dei file richiesti su Windows (UNC supportato)
 // Esempio: r'\\SERVER\SHARE\Farmaconsult\file1.key'
 const String kWinRequiredFile1 = r'\\canestrello\sys\mm5\maga.dbf';
 const String kWinRequiredFile2 = r'\\canestrello\sys\pers\www\index.prg';
 const String kTrayIconDefaultPath = 'windows/runner/resources/app_icon.ico';
+// Range consentito per codici da clipboard (inclusivo)
+const int kClipboardCodeMin = 0;      // usa 100000 per evitare zeri iniziali
+const int kClipboardCodeMax = 999999; // 6 cifre
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows) {
+    // Init notifications for Windows tray toasts
+    try {
+      await localNotifier.setup(appName: 'Farma authenticator');
+    } catch (_) {}
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = WindowOptions(
       size: Size(300, 310),
@@ -41,7 +49,8 @@ void main() async {
       await windowManager.setMaximizable(false);
       await windowManager.show();
       await windowManager.focus();
-      await windowManager.setPreventClose(true);
+      // Abilitiamo preventClose solo dopo l'inizializzazione del tray
+      await windowManager.setPreventClose(false);
     });
   }
   runApp(const ReverseApp());
@@ -78,6 +87,10 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
   String _datascadenza = "";
   String _version = "";
   bool _trayInitialized = false;
+  // Clipboard watcher
+  Timer? _clipboardTimer;
+  String? _lastClipboardSeen;
+  bool _clipboardWatchEnabled = true;
 
   void _initUuid() async {
     final _uuid = await getDeviceBasedUuid();
@@ -96,20 +109,10 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
         _datascadenza = '';
       }
     });
-
-    if (datascadenza == null ||
-        datascadenza.isEmpty == true ||
-        DateTime.now().isAfter(DateFormat("dd-MM-yy").parse(datascadenza))) {
-      debugPrint("richiesto rinnovo token");
-      _registerDevice(_uuid);
-      //_datascadenza = DateFormat("dd-MM-yy").format(DateTime.now());
-    } else {
-      debugPrint("token ancora valido: data scadenza $datascadenza");
-      final filesOk = await _windowsRequiredFilesPresent();
-      setState(() {
-        _lAppAttiva = !Platform.isWindows ? true : filesOk;
-      });
-    }
+    // Cambiato: proviamo SEMPRE a registrare e ottenere la data dal server.
+    // In caso di errore rete/server, _registerDevice userà in fallback la data memorizzata.
+    debugPrint("verifica/registrazione token dal server");
+    _registerDevice(_uuid);
   }
 
   Future<void> _initSystemTray() async {
@@ -120,25 +123,43 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
       MenuItem.separator(),
       MenuItem(key: 'exit', label: 'Esci'),
     ];
-    final iconCandidates = [
+    // Risolvi l'icona della tray da più posizioni possibili
+    final exeDir = File(Platform.resolvedExecutable).parent;
+    final iconCandidates = <String>[
       kTrayIconDefaultPath,
       'assets/tray_icon.ico',
       'assets/tray_icon.png',
+      // Tentativi relativi alla cartella dell'eseguibile (build/release)
+      '${exeDir.path}\\tray_icon.ico',
+      '${exeDir.path}\\assets\\tray_icon.ico',
+      '${exeDir.path}\\data\\tray_icon.ico',
+      '${exeDir.path}\\data\\flutter_assets\\assets\\tray_icon.ico',
+      // Asset inclusi mantenendo il percorso originale nel bundle
+      '${exeDir.path}\\data\\flutter_assets\\windows\\runner\\resources\\tray_icon.ico',
+      '${exeDir.path}\\data\\flutter_assets\\windows\\runner\\resources\\app_icon.ico',
+      '${exeDir.path}\\app_icon.ico',
     ];
     String? resolvedIcon;
     for (final candidate in iconCandidates) {
-      final file = File(candidate);
-      if (await file.exists()) {
-        resolvedIcon = file.absolute.path;
-        break;
-      }
+      try {
+        final file = File(candidate);
+        if (await file.exists()) {
+          resolvedIcon = file.absolute.path;
+          break;
+        }
+      } catch (_) {}
     }
+    bool hadIcon = false;
     if (resolvedIcon != null) {
       await trayManager.setIcon(resolvedIcon);
+      hadIcon = true;
+    } else {
+      debugPrint(
+          'Tray icon non trovata. Aggiungi un file .ico (es. assets/tray_icon.ico) e aggiorna pubspec o copia vicino all\'exe.');
     }
     await trayManager.setToolTip('Farma authenticator');
     await trayManager.setContextMenu(menu);
-    _trayInitialized = true;
+    _trayInitialized = hadIcon;
   }
 
   Future<void> _showFromTray() async {
@@ -184,7 +205,10 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
       return;
     }
     if (eventName == 'minimize') {
-      unawaited(windowManager.hide());
+      // Nascondi alla tray solo se la tray è attiva, altrimenti lascia l'app minimizzata in taskbar
+      if (_trayInitialized) {
+        unawaited(windowManager.hide());
+      }
     }
   }
 
@@ -231,11 +255,25 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
         );
       } else {
         debugPrint('Errore server: ${resp.statusCode} - ${resp.body}');
+        // Fallback: usa la data memorizzata, se presente
+        final prefs = await SharedPreferences.getInstance();
+        final stored = prefs.getString("DataScadenza");
+        final filesOk = await _windowsRequiredFilesPresent();
+        bool attiva = false;
+        if (stored != null && stored.isNotEmpty) {
+          try {
+            attiva = DateFormat("dd-MM-yy").parse(stored).isAfter(DateTime.now());
+          } catch (_) {}
+        }
+        setState(() {
+          _datascadenza = stored ?? '';
+          _lAppAttiva = attiva && (!Platform.isWindows || filesOk);
+        });
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
-              content: Text('Errore server: ${resp.statusCode} - ${resp.body}'),
+              content: Text('Errore server: ${resp.statusCode}. Uso data salvata: ${_datascadenza.isEmpty ? 'nessuna' : _datascadenza}'),
               duration: Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
@@ -243,11 +281,25 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
       }
     } catch (e) {
       debugPrint('Errore rete: $e');
+      // Fallback: usa la data memorizzata, se presente
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString("DataScadenza");
+      final filesOk = await _windowsRequiredFilesPresent();
+      bool attiva = false;
+      if (stored != null && stored.isNotEmpty) {
+        try {
+          attiva = DateFormat("dd-MM-yy").parse(stored).isAfter(DateTime.now());
+        } catch (_) {}
+      }
+      setState(() {
+        _datascadenza = stored ?? '';
+        _lAppAttiva = attiva && (!Platform.isWindows || filesOk);
+      });
       ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
-              content: Text('Errore rete: $e'),
+              content: Text('Errore rete. Uso data salvata: ${_datascadenza.isEmpty ? 'nessuna' : _datascadenza}'),
               duration: Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
@@ -327,18 +379,28 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
       // Copia automatica negli appunti solo su Windows
       if (Platform.isWindows && _converted.isNotEmpty) {
         await Clipboard.setData(ClipboardData(text: _converted));
-        // Feedback non invasivo (mostra breve notifica)
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..clearSnackBars()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text('Codice copiato negli appunti'),
-                duration: Duration(milliseconds: 900),
-                behavior: SnackBarBehavior.floating,
-              ),
+        // Feedback: SnackBar se visibile, altrimenti notifica di sistema
+        try {
+          final isVisible = await windowManager.isVisible();
+          if (mounted && isVisible) {
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Codice copiato negli appunti'),
+                  duration: Duration(milliseconds: 900),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+          } else {
+            // Toast in tray area
+            final n = LocalNotification(
+              title: 'Farma authenticator',
+              body: 'Codice copiato: ' + _converted,
             );
-        }
+            await n.show();
+          }
+        } catch (_) {}
       }
       //_tts.setLanguage('it-IT');
       //_tts.setSpeechRate(0.5); // più lento
@@ -370,8 +432,16 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
     if (Platform.isWindows) {
       windowManager.addListener(this);
       trayManager.addListener(this);
-      unawaited(_initSystemTray());
+      // Inizializza la tray e abilita preventClose solo se disponibile
+      unawaited(_initSystemTray().then((_) async {
+        if (_trayInitialized) {
+          await windowManager.setPreventClose(true);
+        } else {
+          await windowManager.setPreventClose(false);
+        }
+      }));
     }
+    _startClipboardWatcher();
   }
 
   @override
@@ -383,8 +453,71 @@ class _ReverseHomePageState extends State<ReverseHomePage> with WindowListener, 
         unawaited(trayManager.destroy());
       }
     }
+    _stopClipboardWatcher();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _startClipboardWatcher() {
+    if (!Platform.isWindows) return; // abilita solo su Windows (modifica se vuoi)
+    _clipboardTimer?.cancel();
+    _clipboardTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+      if (!_clipboardWatchEnabled) return;
+      _checkClipboardForCode();
+    });
+  }
+
+  void _stopClipboardWatcher() {
+    _clipboardTimer?.cancel();
+    _clipboardTimer = null;
+  }
+
+  String _digitsOnly(String s) {
+    final sb = StringBuffer();
+    for (final cu in s.codeUnits) {
+      if (cu >= 0x30 && cu <= 0x39) { // '0'..'9'
+        sb.writeCharCode(cu);
+      }
+    }
+    return sb.toString();
+  }
+
+  Future<void> _checkClipboardForCode() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text ?? '';
+      if (text.isEmpty || text == _lastClipboardSeen) return;
+      // Strict: accetta solo se la clipboard contiene ESATTAMENTE 6 cifre (nessun separatore)
+      _lastClipboardSeen = text;
+      final t = text.trim();
+      if (t.length != 6) return;
+      bool allDigits = true;
+      for (final cu in t.codeUnits) {
+        if (cu < 0x30 || cu > 0x39) { // '0'..'9'
+          allDigits = false;
+          break;
+        }
+      }
+      if (!allDigits) return; // es. "20-12-12" non viene accettato
+      final value = int.tryParse(t);
+      if (value == null || value < kClipboardCodeMin || value > kClipboardCodeMax) return;
+      if (!mounted) return;
+      final hasFocus = FocusScope.of(context).hasFocus;
+      final userTyping = hasFocus && _controller.text.isNotEmpty;
+      if (userTyping) return;
+      _controller.text = t;
+      _autoSubmitted = false;
+      _controller.selection = const TextSelection.collapsed(offset: 6);
+      _handleTextChanged(t);
+      return;
+
+      // cerca esattamente 6 cifre isolate
+      // ignore: unused_local_variable
+      
+      
+    } catch (_) {
+      // ignora errori clipboard
+    }
   }
 
   @override
