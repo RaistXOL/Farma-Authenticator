@@ -50,7 +50,7 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
       // Abilitiamo preventClose solo dopo l'inizializzazione del tray
-      await windowManager.setPreventClose(false);
+      //await windowManager.setPreventClose(false);
     });
   }
   runApp(const ReverseApp());
